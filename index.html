@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandy Palms | Financial Modeling Tool</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            sand: '#F5F2EA',      
+                            teal: '#2A9D8F',      
+                            navy: '#264653',      
+                            gold: '#E9C46A',      
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Playfair Display"', 'serif'],
+                        sans: ['"Inter"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F5F2EA; color: #264653; }
+        h1, h2, h3 { font-family: 'Playfair Display', serif; }
+        
+        /* Clean Input Styles */
+        .input-clean {
+            width: 100%;
+            background-color: #F9FAFB;
+            border: 1px solid #D1D5DB;
+            border-radius: 0.25rem;
+            padding: 0.5rem;
+            text-align: right;
+            font-weight: 700;
+            color: #264653;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+        .input-clean:focus { outline: none; border-color: #2A9D8F; background-color: #fff; box-shadow: 0 0 0 3px rgba(42, 157, 143, 0.1); }
+
+        .table-input-clean { 
+             width: 4rem; 
+             background-color: white; 
+             border: 1px solid #E5E7EB; 
+             border-radius: 0.25rem; 
+             padding: 0.25rem; 
+             text-align: center; 
+             font-weight: 700; 
+             color: #2A9D8F; 
+             font-size: 0.85rem;
+        }
+        
+        /* Range Slider */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%;
+            background: #2A9D8F; cursor: pointer; margin-top: -7px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer; background: #E6E2D6; border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header class="bg-brand-navy text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div class="flex flex-col">
+                <h1 class="text-2xl font-bold tracking-tight">Sandy Palms <span class="text-brand-gold font-light">| Financial Model</span></h1>
+                <span class="text-xs text-white/60 font-sans">Interactive Analysis Tool v2.2</span>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <button onclick="fm_toggleCurrency()" id="cur-btn" class="bg-white/10 border border-white/20 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2">
+                    <span>🔄</span> VIEW IN CAD ($)
+                </button>
+                
+                <button onclick="generatePDF()" class="bg-brand-gold text-brand-navy px-4 py-2 rounded-lg text-sm font-bold hover:bg-white transition-all shadow-md flex items-center gap-2">
+                    <span>📄</span> Save as PDF
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow py-8 px-4 sm:px-6">
+        <div class="max-w-7xl mx-auto space-y-8">
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div>
+                        <label class="text-xs font-bold text-gray-400 uppercase block mb-2">Mortgage Rate</label>
+                        <div class="flex items-center gap-4">
+                            <input type="range" id="mortgage-rate" min="3" max="10" step="0.25" value="7" oninput="fm_handleInput('mortgage-rate')">
+                            <span id="rate-disp" class="text-2xl font-bold text-brand-navy w-20 text-right">7.0%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-400 uppercase block mb-2">Down Payment</label>
+                        <div class="flex items-center gap-4">
+                            <input type="range" id="down-slider" min="20" max="100" step="5" value="40" oninput="fm_handleInput('down-slider')">
+                            <span id="down-disp" class="text-2xl font-bold text-brand-navy w-20 text-right">40%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-400 uppercase block mb-2">Occupancy Rate</label>
+                        <div class="flex items-center gap-4">
+                            <input type="range" id="vacancy-rate" min="20" max="90" step="5" value="50" oninput="fm_handleInput('vacancy-rate')">
+                            <span id="occ-disp" class="text-2xl font-bold text-brand-navy w-20 text-right">50%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="pdf-capture-area" class="space-y-8 p-2 bg-[#F5F2EA]">
+                
+                <div class="grid md:grid-cols-3 gap-6">
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-full h-1 bg-brand-navy"></div>
+                        <h4 class="font-bold text-brand-navy mb-6 text-xl font-serif flex justify-between items-center">
+                            <span>Purchase Info</span>
+                            <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 font-sans" id="lbl-currency-1">USD</span>
+                        </h4>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-xs font-bold text-gray-500 uppercase">Purchase Price</label>
+                                <input type="number" id="input-price" class="input-clean text-lg" value="1985000" onchange="fm_handleInput('input-price')">
+                            </div>
+
+                            <div class="flex justify-between items-center text-gray-400 text-sm px-1">
+                                <span>- Mortgage Loan</span>
+                                <span id="p-mortgage" class="font-bold"></span>
+                            </div>
+
+                            <div class="flex justify-between items-center text-brand-teal font-bold pt-2 border-t border-gray-100 text-lg px-1">
+                                <span>= Downpayment</span>
+                                <span id="p-down"></span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4 pt-2">
+                                <div>
+                                    <label class="text-xs font-bold text-gray-500 uppercase">Buying Costs</label>
+                                    <input type="number" id="input-buying" class="input-clean" value="248125" onchange="fm_handleInput('input-buying')">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-bold text-gray-500 uppercase">Renovations</label>
+                                    <input type="number" id="input-reno" class="input-clean" value="100000" onchange="fm_handleInput('input-reno')">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="text-xs font-bold text-gray-500 uppercase">Furniture / Other</label>
+                                <input type="number" id="input-other" class="input-clean" value="0" onchange="fm_handleInput('input-other')">
+                            </div>
+
+                            <div class="bg-brand-sand p-4 rounded-lg flex justify-between items-center mt-4 border border-brand-gold/20">
+                                <span class="font-bold text-brand-navy uppercase text-xs tracking-wider">Total Cash Required</span>
+                                <span id="p-total" class="font-bold text-brand-navy text-xl"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+                         <div class="absolute top-0 left-0 w-full h-1 bg-brand-teal"></div>
+                        <h4 class="font-bold text-brand-navy mb-6 text-xl font-serif flex justify-between items-center">
+                            <span>Performance</span>
+                            <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 font-sans" id="lbl-currency-2">USD</span>
+                        </h4>
+                        
+                        <div class="space-y-4 text-sm font-sans">
+                            <div class="flex justify-between items-end pb-2 border-b border-gray-50">
+                                <span class="text-gray-600">Gross Revenue (Potential)</span>
+                                <span id="p-gross-pot" class="font-bold text-brand-navy text-lg"></span>
+                            </div>
+                            
+                            <div class="flex justify-between items-center text-red-400">
+                                <span>Vacancy Loss</span>
+                                <span id="p-vac-loss" class="font-bold"></span>
+                            </div>
+                            
+                            <div class="flex justify-between items-center pt-2 font-medium">
+                                <span class="text-gray-700">Effective Gross Income</span>
+                                <span id="p-eff-inc"></span>
+                            </div>
+
+                            <div class="flex justify-between items-center pt-2 pb-2 border-b border-gray-100">
+                                <span class="font-bold text-brand-navy">Net Operating Income (NOI)</span>
+                                <span id="p-noi" class="font-bold text-green-600 text-lg"></span>
+                            </div>
+
+                            <div class="flex justify-between items-center text-red-400">
+                                <span>- Annual Debt Service</span>
+                                <span id="p-debt" class="font-bold"></span>
+                            </div>
+
+                            <div class="bg-brand-navy text-white p-4 rounded-lg flex justify-between items-center mt-6 shadow-lg">
+                                <div class="flex flex-col">
+                                    <span class="font-bold uppercase text-[10px] tracking-widest text-brand-gold">Annual Cash Flow</span>
+                                    <span class="text-xs opacity-70">Pre-Tax</span>
+                                </div>
+                                <span id="p-ncf" class="font-bold text-2xl text-brand-gold"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-full h-1 bg-brand-gold"></div>
+                        <h4 class="font-bold text-brand-navy mb-6 text-xl font-serif">Metrics & Assumptions</h4>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="bg-gray-50 p-3 rounded text-center">
+                                <span class="block text-xs text-gray-500 uppercase mb-1">Cap Rate</span>
+                                <span id="f-cap" class="block text-xl font-bold text-brand-navy"></span>
+                            </div>
+                            <div class="bg-green-50 p-3 rounded text-center">
+                                <span class="block text-xs text-green-600 uppercase mb-1">Cash on Cash</span>
+                                <span id="f-coc" class="block text-xl font-bold text-green-700"></span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3 text-sm">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Income Inflation</span>
+                                <div class="flex items-center gap-1"><input type="number" id="ass-inc" class="w-16 border rounded px-1 text-right font-bold text-brand-navy" value="3.0" onchange="fm_handleInput('ass-inc')"><span class="text-xs">%</span></div>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Expense Inflation</span>
+                                <div class="flex items-center gap-1"><input type="number" id="ass-exp" class="w-16 border rounded px-1 text-right font-bold text-brand-navy" value="3.0" onchange="fm_handleInput('ass-exp')"><span class="text-xs">%</span></div>
+                            </div>
+                            <div class="flex justify-between items-center bg-brand-teal/5 p-1 rounded -mx-1 border border-brand-teal/20">
+                                <span class="text-brand-teal font-bold">Refinance LTV Option</span>
+                                <div class="flex items-center gap-1"><input type="number" id="ass-refi" class="w-16 border rounded px-1 text-right font-bold text-brand-teal" value="70.0" onchange="fm_handleInput('ass-refi')"><span class="text-xs">%</span></div>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Future Selling Costs</span>
+                                <div class="flex items-center gap-1"><input type="number" id="ass-sell" class="w-16 border rounded px-1 text-right font-bold text-brand-navy" value="5.0" onchange="fm_handleInput('ass-sell')"><span class="text-xs">%</span></div>
+                            </div>
+                            
+                            <button onclick="fm_resetDefaults()" class="w-full mt-6 text-xs text-gray-400 hover:text-brand-coral underline">Reset to Defaults</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <h3 class="text-xl font-bold text-brand-navy mb-4 font-serif">Buy & Hold Projection (30 Year Analysis)</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full border-collapse text-sm text-center">
+                            <thead>
+                                <tr>
+                                    <th class="bg-brand-navy text-white p-3 text-left rounded-tl-lg">Metric</th>
+                                    <th class="bg-brand-navy text-white p-3 text-center">Year 1</th>
+                                    <th class="bg-brand-navy text-white p-3 text-center">Year 2</th>
+                                    <th class="bg-brand-navy text-white p-3 text-center">Year 3</th>
+                                    <th class="bg-brand-navy text-white p-3 text-center">Year 5</th>
+                                    <th class="bg-brand-navy text-white p-3 text-center">Year 10</th>
+                                    <th class="bg-brand-navy text-white p-3 text-center">Year 20</th>
+                                    <th class="bg-brand-navy text-white p-3 text-center rounded-tr-lg">Year 30</th>
+                                </tr>
+                                <tr class="bg-gray-50 border-b border-gray-200">
+                                    <td class="p-2 font-bold text-gray-600 italic text-left pl-3">Appreciation Rate</td>
+                                    <td class="p-2"><input type="number" id="app-1" class="table-input-clean mx-auto" value="3.0" onchange="fm_handleInput('app-1')">%</td>
+                                    <td class="p-2"><input type="number" id="app-2" class="table-input-clean mx-auto" value="3.0" onchange="fm_handleInput('app-2')">%</td>
+                                    <td class="p-2"><input type="number" id="app-3" class="table-input-clean mx-auto" value="3.0" onchange="fm_handleInput('app-3')">%</td>
+                                    <td class="p-2"><input type="number" id="app-5" class="table-input-clean mx-auto" value="3.0" onchange="fm_handleInput('app-5')">%</td>
+                                    <td class="p-2"><input type="number" id="app-10" class="table-input-clean mx-auto" value="3.0" onchange="fm_handleInput('app-10')">%</td>
+                                    <td class="p-2"><input type="number" id="app-20" class="table-input-clean mx-auto" value="3.0" onchange="fm_handleInput('app-20')">%</td>
+                                    <td class="p-2"><input type="number" id="app-30" class="table-input-clean mx-auto" value="3.0" onchange="fm_handleInput('app-30')">%</td>
+                                </tr>
+                            </thead>
+                            <tbody id="fm-projection-body" class="divide-y divide-gray-100 text-center text-gray-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-brand-navy text-white p-8 rounded-xl shadow-lg">
+                    <h3 class="text-xl font-bold text-brand-gold mb-6 font-serif">Equity Ownership Calculator</h3>
+                    <div class="flex flex-col md:flex-row justify-between items-center gap-12">
+                        <div class="w-full md:w-1/2 space-y-6">
+                            <div>
+                                <label class="flex justify-between text-sm font-bold uppercase text-gray-400 mb-4">
+                                    <span>Desired Ownership Stake</span>
+                                    <span id="owner-pct-disp" class="text-brand-teal text-xl">50%</span>
+                                </label>
+                                <input type="range" id="ownership-slider" min="1" max="100" step="1" value="50" oninput="fm_calculateEquityStake()">
+                            </div>
+                            <div class="pt-6 border-t border-white/10">
+                                <label class="block text-sm font-bold uppercase text-gray-400 mb-2">Or Enter Investment Amount (<span id="lbl-currency-3">USD</span>)</label>
+                                <input type="number" id="manual-invest-input" class="w-full text-2xl font-bold p-4 rounded-lg bg-white/10 border border-white/20 text-white focus:border-brand-teal focus:outline-none focus:bg-white/20 transition-colors" oninput="fm_calculateStakeFromDollars()">
+                            </div>
+                        </div>
+                        <div class="w-full md:w-1/2 flex flex-col items-center justify-center p-6 bg-white/5 rounded-xl border border-white/10">
+                            <span class="text-sm font-bold uppercase text-brand-gold tracking-widest mb-2">Capital Required</span>
+                            <div id="investor-dollar-result" class="text-5xl font-black text-white mb-2">$0</div>
+                            <div id="investor-percent-result" class="text-sm font-mono text-gray-400">for 50.0% Stake</div>
+                        </div>
+                    </div>
+                </div>
+            </div> 
+            </div>
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 mt-12 py-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-gray-400 text-sm">
+            <p class="mb-2">Sandy Palms Financial Model v2.2</p>
+            <p>Confidential. For Internal Use Only.</p>
+        </div>
+    </footer>
+
+    <script>
+        // --- CONSTANTS ---
+        const CAD_RATE = 1.43; // $1.00 USD = $1.43 CAD
+        const FM_YEARS = [1, 2, 3, 5, 10, 20, 30];
+
+        // --- STATE ---
+        let fm_isCAD = false;
+        let fm_totalInitialCash = 0;
+        
+        // DEFAULT STATE (USD Base Values)
+        const defaultState = {
+            'input-price': 1985000,
+            'input-buying': 248125,
+            'input-reno': 100000,
+            'input-other': 0,
+            'mortgage-rate': 7.0,
+            'down-slider': 40,
+            'vacancy-rate': 50,
+            'ass-inc': 3.0,
+            'ass-exp': 3.0,
+            'ass-sell': 5.0,
+            'ass-refi': 70.0,
+            'app-1': 3, 'app-2': 3, 'app-3': 3, 'app-5': 3, 'app-10': 3, 'app-20': 3, 'app-30': 3
+        };
+
+        let fm_state = { ...defaultState };
+
+        // --- INIT ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initFinancialTool();
+        });
+
+        function initFinancialTool() {
+            // Load from Local Storage
+            const saved = localStorage.getItem('sandyPalms_tool_state');
+            if(saved) {
+                try {
+                    fm_state = { ...fm_state, ...JSON.parse(saved) };
+                } catch(e) { console.error("Load error", e); }
+            }
+            
+            // Populate Inputs with USD values initially
+            for(const key in fm_state) {
+                const el = document.getElementById(key);
+                if(el) el.value = fm_state[key];
+            }
+            fm_updateCalculations();
+        }
+
+        function fm_resetDefaults() {
+            if(confirm("Reset all numbers to default?")) {
+                fm_state = { ...defaultState };
+                localStorage.setItem('sandyPalms_tool_state', JSON.stringify(fm_state));
+                // Reload page to clear any CAD/USD confusion or just re-init
+                location.reload();
+            }
+        }
+
+        // --- INPUT HANDLING ---
+        function fm_handleInput(id) {
+            const el = document.getElementById(id);
+            if(!el) return;
+            let val = parseFloat(el.value);
+            if(isNaN(val)) val = 0;
+            
+            // IF we are in CAD mode, we must convert the input BACK to USD before saving to state
+            // List of monetary inputs that need conversion
+            const monetaryInputs = ['input-price', 'input-buying', 'input-reno', 'input-other'];
+            
+            if(fm_isCAD && monetaryInputs.includes(id)) {
+                val = val / CAD_RATE;
+            }
+
+            // Update State
+            fm_state[id] = val;
+            
+            // Save to Local Storage
+            localStorage.setItem('sandyPalms_tool_state', JSON.stringify(fm_state));
+
+            // Run Calcs
+            fm_updateCalculations();
+        }
+
+        // --- TOGGLE CURRENCY ---
+        function fm_toggleCurrency() {
+            fm_isCAD = !fm_isCAD;
+            const btn = document.getElementById('cur-btn');
+            
+            // Update Button & Labels
+            const lbls = ['lbl-currency-1', 'lbl-currency-2', 'lbl-currency-3'];
+            lbls.forEach(l => document.getElementById(l).innerText = fm_isCAD ? 'CAD' : 'USD');
+
+            if(fm_isCAD) {
+                btn.innerHTML = "<span>🇺🇸</span> VIEW IN USD ($)";
+                btn.classList.add('bg-brand-gold', 'text-brand-navy');
+                btn.classList.remove('bg-white/10', 'text-white');
+            } else {
+                btn.innerHTML = "<span>🔄</span> VIEW IN CAD ($)";
+                btn.classList.remove('bg-brand-gold', 'text-brand-navy');
+                btn.classList.add('bg-white/10', 'text-white');
+            }
+
+            // Update Input Fields (The visible numbers)
+            const monetaryInputs = ['input-price', 'input-buying', 'input-reno', 'input-other'];
+            monetaryInputs.forEach(id => {
+                const el = document.getElementById(id);
+                const baseVal = fm_state[id]; // Always USD
+                // If CAD, display Base * Rate. If USD, display Base.
+                el.value = Math.round(baseVal * (fm_isCAD ? CAD_RATE : 1));
+            });
+
+            fm_updateCalculations();
+        }
+
+        // --- CORE CALCULATIONS ---
+        function fm_updateCalculations() {
+            const rate = fm_isCAD ? CAD_RATE : 1;
+            
+            // 1. Get Values from State (Base USD) and convert for display
+            const price = fm_state['input-price'] * rate;
+            const buyCosts = fm_state['input-buying'] * rate;
+            const reno = fm_state['input-reno'] * rate;
+            const other = fm_state['input-other'] * rate;
+            
+            const downPct = fm_state['down-slider'] / 100;
+            const mRate = fm_state['mortgage-rate'] / 100;
+            const occ = fm_state['vacancy-rate'] / 100;
+            
+            // Update Range Displays
+            document.getElementById('rate-disp').innerText = (mRate*100).toFixed(2) + '%';
+            document.getElementById('down-disp').innerText = (downPct*100) + '%';
+            document.getElementById('occ-disp').innerText = (occ*100) + '%';
+
+            // 2. Acquisition Logic
+            const loanAmt = price * (1 - downPct);
+            const downAmt = price * downPct;
+            const totalInitial = downAmt + buyCosts + reno + other;
+            fm_totalInitialCash = totalInitial;
+
+            // 3. Debt Logic
+            const nMonths = 25 * 12; // 25 year amortization
+            const monthlyRate = mRate / 12;
+            let monthlyPmt = 0;
+            if(loanAmt > 0 && mRate > 0) {
+                monthlyPmt = (loanAmt * (monthlyRate * Math.pow(1+monthlyRate, nMonths))) / (Math.pow(1+monthlyRate, nMonths) - 1);
+            }
+            const annualDebt = monthlyPmt * 12;
+
+            // 4. Operating Logic
+            // Constants for Revenue (Base USD)
+            const baseGrossPot = 634734; 
+            const baseOpExp = 143473; 
+            
+            // Convert to current currency
+            const grossPot = baseGrossPot * rate;
+            const opExp = baseOpExp * rate; // Simplified expense scaling
+            
+            const vacLoss = grossPot * (1 - occ);
+            const effInc = grossPot - vacLoss;
+            const noi = (grossPot * occ) - opExp; // Standard Formula
+            const ncf = noi - annualDebt;
+
+            // 5. Update DOM
+            const fmt = (v) => (fm_isCAD ? 'C$' : '$') + Math.round(v).toLocaleString();
+
+            document.getElementById('p-mortgage').innerText = fmt(loanAmt);
+            document.getElementById('p-down').innerText = fmt(downAmt);
+            document.getElementById('p-total').innerText = fmt(totalInitial);
+
+            document.getElementById('p-gross-pot').innerText = fmt(grossPot);
+            document.getElementById('p-vac-loss').innerText = "- " + fmt(vacLoss);
+            document.getElementById('p-eff-inc').innerText = fmt(effInc);
+            document.getElementById('p-noi').innerText = fmt(noi);
+            document.getElementById('p-debt').innerText = "- " + fmt(annualDebt);
+            document.getElementById('p-ncf').innerText = fmt(ncf);
+
+            // Metrics
+            document.getElementById('f-cap').innerText = price > 0 ? ((noi / price) * 100).toFixed(1) + "%" : "0%";
+            document.getElementById('f-coc').innerText = totalInitial > 0 ? ((ncf / totalInitial) * 100).toFixed(2) + "%" : "0%";
+
+            // 6. Deep Analysis & Equity
+            fm_renderDeepAnalysis(price, loanAmt, totalInitial, monthlyRate, nMonths, annualDebt, grossPot, occ, opExp, fmt);
+            fm_calculateEquityStake();
+        }
+
+        function fm_renderDeepAnalysis(price, loanAmt, initialCash, mRate, nMonths, debt, gross, occ, expTotal, fmt) {
+            const body = document.getElementById('fm-projection-body');
+            let mVal = price;
+            let lastY = 0;
+            
+            const incInf = fm_state['ass-inc'] / 100;
+            const expInf = fm_state['ass-exp'] / 100;
+            const sellPct = fm_state['ass-sell'] / 100;
+            const refiLtv = fm_state['ass-refi'] / 100;
+
+            // Rows Data Arrays
+            let r_gross=[], r_noi=[], r_debt=[], r_ncf=[], r_val=[], r_eq=[], r_prof=[], r_refi=[];
+
+            FM_YEARS.forEach(y => {
+                const gap = y - lastY;
+                const app = (fm_state[`app-${y}`] || 3) / 100;
+                mVal = mVal * Math.pow(1 + app, gap);
+                lastY = y;
+
+                // Inflate Revenue & Exp
+                const cGross = gross * Math.pow(1 + incInf, y - 1);
+                const cExp = expTotal * Math.pow(1 + expInf, y - 1);
+                const cNOI = (cGross * occ) - cExp;
+                
+                // Debt Balance
+                let cBal = 0;
+                if(loanAmt > 0) {
+                     cBal = loanAmt * (Math.pow(1+mRate, nMonths) - Math.pow(1+mRate, y*12)) / (Math.pow(1+mRate, nMonths) - 1);
+                }
+
+                const cEq = mVal - cBal;
+                const cNCF = cNOI - debt;
+                
+                // Refi Calculation
+                // Max Loan based on current Value * Refi LTV
+                const maxRefiLoan = mVal * refiLtv;
+                // Cash Out = Max Loan - Current Balance
+                const cashOut = maxRefiLoan - cBal;
+                const dispCashOut = cashOut > 0 ? cashOut : 0;
+                
+                // Profit approx: Equity Gain (after fees) + (AvgCF * Years) - Initial
+                const avgCF = (cNCF + (cNOI - debt)) / 2; // Simple average
+                const cProf = (cEq * (1-sellPct)) + (avgCF * y) - initialCash;
+
+                r_gross.push(fmt(cGross));
+                r_noi.push(fmt(cNOI));
+                r_debt.push(`(${fmt(debt)})`);
+                r_ncf.push(fmt(cNCF));
+                r_val.push(fmt(mVal));
+                r_eq.push(fmt(cEq));
+                r_refi.push(fmt(dispCashOut));
+                r_prof.push(fmt(cProf));
+            });
+
+            // Helper to build TR
+            const buildRow = (label, data, isBold=false, highlight=false, textColor='') => {
+                let cls = highlight ? 'bg-brand-gold/10' : (isBold ? 'font-bold' : '');
+                let txt = textColor ? textColor : '';
+                return `<tr class="${cls} ${txt}"><td class="text-left p-2 pl-3 ${isBold?'font-bold':''} text-brand-navy">${label}</td>${data.map(d=>`<td class="p-2">${d}</td>`).join('')}</tr>`;
+            }
+
+            body.innerHTML = `
+                <tr class="bg-gray-100 text-brand-navy font-bold text-left text-xs uppercase tracking-widest"><td colspan="8" class="p-2 pl-3">Income Statement</td></tr>
+                ${buildRow('Gross Income', r_gross)}
+                ${buildRow('NOI', r_noi)}
+                ${buildRow('Debt Service', r_debt, false, false, 'text-red-400')}
+                ${buildRow('Cash Flow', r_ncf, true, true, 'text-brand-navy')}
+                
+                <tr class="bg-gray-100 text-brand-navy font-bold text-left text-xs uppercase tracking-widest"><td colspan="8" class="p-2 pl-3 mt-4">Asset Valuation</td></tr>
+                ${buildRow('Market Value', r_val)}
+                ${buildRow('Equity', r_eq, true)}
+                ${buildRow('Potential Cash-Out Refi', r_refi, true, false, 'text-brand-teal')}
+                ${buildRow('Net Profit (Exit)', r_prof, true, true)}
+            `;
+        }
+
+        // --- EQUITY SLIDERS ---
+        function fm_calculateEquityStake() {
+            const pct = document.getElementById('ownership-slider').value;
+            const investVal = fm_totalInitialCash * (pct / 100);
+            const fmt = (v) => (fm_isCAD ? 'C$' : '$') + Math.round(v).toLocaleString();
+            
+            document.getElementById('owner-pct-disp').innerText = pct + '%';
+            document.getElementById('investor-dollar-result').innerText = fmt(investVal);
+            document.getElementById('investor-percent-result').innerText = pct + '.0%';
+            
+            // Just update the input value visually, don't trigger handleInput
+            document.getElementById('manual-invest-input').value = Math.round(investVal);
+        }
+
+        function fm_calculateStakeFromDollars() {
+            const dollars = parseFloat(document.getElementById('manual-invest-input').value) || 0;
+            const pct = fm_totalInitialCash > 0 ? (dollars / fm_totalInitialCash) * 100 : 0;
+            const fmt = (v) => (fm_isCAD ? 'C$' : '$') + Math.round(v).toLocaleString();
+
+            document.getElementById('investor-dollar-result').innerText = fmt(dollars);
+            document.getElementById('investor-percent-result').innerText = pct.toFixed(1) + '%';
+            
+            // Update Slider
+            const safePct = Math.min(100, Math.max(1, Math.round(pct)));
+            document.getElementById('ownership-slider').value = safePct;
+            document.getElementById('owner-pct-disp').innerText = safePct + '%';
+        }
+
+        // --- PDF GENERATION ---
+        async function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const element = document.getElementById('pdf-capture-area');
+            
+            // Backup styles
+            const originalBg = element.style.backgroundColor;
+            element.style.backgroundColor = "#ffffff"; 
+
+            try {
+                const canvas = await html2canvas(element, { scale: 2 });
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                
+                // Header
+                pdf.setFillColor(38, 70, 83); // Brand Navy
+                pdf.rect(0, 0, pdfWidth, 25, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(20);
+                pdf.text("Sandy Palms Financial Model", 10, 16);
+                pdf.setFontSize(10);
+                pdf.text("Generated Projection", 150, 16);
+
+                // Image
+                pdf.addImage(imgData, 'PNG', 0, 30, pdfWidth, pdfHeight);
+                pdf.save("SandyPalms_Financial_Model.pdf");
+            } catch (err) {
+                alert("Error generating PDF: " + err.message);
+            } finally {
+                element.style.backgroundColor = originalBg;
+            }
+        }
+    </script>
+</body>
+</html>
